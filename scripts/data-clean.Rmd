@@ -1,0 +1,321 @@
+---
+title: "Data Playground"
+author: "Janette Avelar"
+date: "3/10/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library}
+library(tidyverse)
+library(here)
+library(janitor)
+library(haven)
+library(rio)
+source(here("scripts", "functions.R"))
+
+raw_data  <- read_sas(here("data", "frss107puf.sas7bdat")) %>%
+   janitor::clean_names()
+# unknown <- read_sas(here("data", "formatspuf.sas7bdat")) %>% 
+#   janitor::clean_names()
+# unknown2 <- read_sas(here("data", "CntlinPUF.sas")) %>% 
+#   janitor::clean_names()
+```
+
+## Final project requirements
+
+Must include:  
+* no code is used repetitively (2+) [10 points]  
+* more than 1 variant of purrr::map used [5 points]  
+* 1+ {purrr} function outside of basic `map` family [5 points]  
++ `walk_*`  
++ `reduce`  
++ `modify_*`  
++ etc.  
+* at least 1 instance of parallel iteration [5 points]  
++ `map2_*`  
++ `pmap_*`  
+* at least 1 use of `purrr::nest %>% mutate()` [5 points]  
+* at least 2 custom functions [10 points]  
+* code fully reproducible and housed on GH [10 points]  
+* no obvious errors in output [5 points]  
+* deployed on web and shareable via link [5 points]
+
+## Potential variables of interest:  
+###Demographics
+`URBAN`  **could use this to create nested data**
++ 1 = city  
++ 2 = suburban  
++ 3 = town  
++ 4 = rural  
+`OEREG`  **maybe**
++ 1 = Northeast  
++ 2 = Southeast  
++ 3 = Central  
++ 4 = West
+`Q1` - Does your district currently enroll ELs at HS level?  
++ 1 = Yes  
++ 2 = No  **sort out 2s from the data - irrelevant**
+`T_Q2` - What is the current total number of ELs enrolled in district?  
++ -8 = Inapplicable  
++ 1 = 1-10 ELs  
++ 2 = 11-100 ELs  
++ 3 = 101+ ELs
+
+###Instructional language services
+`Q3A` - Bilingual instruction in at least 1 content class?
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q3B` - Two-way bilingual/dual language programs in at least 1 content class?  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q3C` - ESL instruction in scheduled class periods?  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q3D` - ESL push-in or pull-out?
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q3E` - Instructional support by a para who *does not* speak native language?  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q3F` - Instructional support by a para who *does* speak native language?  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q3G` - Sheltered English/content instruction?  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q3H` - Other approaches  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+
+###Additional language supports  
+Programs or services designed specifically for ELs:
+`Q11A` - Tutoring 
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q11B` - Summer school  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q11C` - Credit recovery course course/program  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q11D` - Mentoring  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q11E` - Distance education course/program  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q11F` - Other  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+
+###Non-instructional language services
+Services available for HS Els and their parents/guardians (most common native language):  
+`Q12APT1` - written information about academic programs
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q12BPT1` - written information about CTE programs
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No 
+`Q12CPT1` - translation services upon request for printed materials
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q12DPT1` - interpreters upon request for meetings or calls  
++ -8 = Inapplicable  
++ 1 = Yes  
++ 2 = No  
+`Q13APT1` - apprx. ELs with most common native language (content instruction)  
++ -8 = Inapplicable  
++ 1 = No students  
++ 2 = Few students  
++ 3 = Some students  
++ 4 = Most or all students  
+`Q13APT2` - apprx. ELs with most common native language (instructional support only)  
++ -8 = Inapplicable  
++ 1 = No students  
++ 2 = Few students  
++ 3 = Some students  
++ 4 = Most or all students 
+
+Services available for HS Els and their parents/guardians (other native languages): 
+`Q12APT2` - written information about academic programs  
++ -8 = Inapplicable  
++ 1 = All languages  
++ 2 = Some languages  
++ 3 = None  
+`Q12BPT2` - written information about CTE programs  
++ -8 = Inapplicable  
++ 1 = All languages  
++ 2 = Some languages  
++ 3 = None  
+`Q12CPT2` - translation services upon request for printed materials  
++ -8 = Inapplicable  
++ 1 = All languages  
++ 2 = Some languages  
++ 3 = None  
+`Q12DPT2` - interpreters upon request for meetings or calls  
++ -8 = Inapplicable  
++ 1 = All languages  
++ 2 = Some languages  
++ 3 = None  
+`Q13BPT1` - apprx. ELs with other languages (content instruction)  
++ -8 = Inapplicable  
++ 1 = No students  
++ 2 = Few students  
++ 3 = Some students  
++ 4 = Most or all students  
+`Q13BPT2` - apprx. ELs with other languages (instructional support only)  
++ -8 = Inapplicable  
++ 1 = No students  
++ 2 = Few students  
++ 3 = Some students  
++ 4 = Most or all students  
+
+Possible predictions:  
+* could use logistic regression (or regular regression, but odds may be handier and you have binomial vars) to predict:  
++ urban areas will provide more resources  
++ schools with high concentrations of ELs in their district will provide more content instruction  
++ schools with high concentrations of ELs speaking other languages will provide more other language support
+
+## Data cleaning  
+
+Start by subsetting the data and saving a smaller workable datafile for analysis.
+
+```{r subset}
+sm_dat <- data %>% 
+  select(urban, oereg, q1, t_q2, #demographics
+         q3a, q3b, q3c, q3d, q3e, q3f, q3g, q3h, #instructional language support
+         q11a, q11b, q11c, q11d, q11e, q11f, #additional language support
+         q12apt1, q12bpt1, q12cpt1, q12dpt1, q13apt1, q13apt2, #non-instructional primary
+         q12apt2, q12bpt2, q12cpt2, q12dpt2, q13bpt1, q13bpt2) %>%  #non-instructional other
+  filter(q1 == 1) #remove all HS that do not have EL services
+#export(sm_dat, "hsel_data.csv")
+```
+
+Rename and recode cols
+
+```{r rename}
+dat <- import(here("data", "hsel_data.csv")) %>% 
+  select(-q1)#drop forgotten col
+#rename cols
+new_col <- c("region_type", "region", "n_el", "b_bilingual_content", "b_twi_dual_content", "b_integrated_esl", "b_push_pull_esl", "b_mono_para", "b_bilingual_para", "b_sheltered_content", "b_other_instructional", "c_tutoring", "c_summer", "c_credit_recovery", "c_mentoring", "c_distance_ed", "c_other", "d_acad_info_primary", "d_cte_info_primary", "d_translation_primary", "d_interpreter_primary", "d_receiving_content_primary", "d_receiving_instruct_support_primary", "e_acad_info_other", "e_cte_info_other", "e_translation_other", "e_interpreter_other", "e_receiving_content_other", "e_receiving_instruct_support_other")
+colnames(dat) <- new_col
+#recode cols
+dat <- dat %>% 
+  mutate_all(na_if, -8) %>% 
+  mutate(region_type = factor(region_type, levels = c(1, 2, 3, 4), labels = c("city", "suburb", "town", "rural")),
+         region = factor(region, levels = c(1, 2, 3, 4), labels = c("northeast", "southeast", "central", "west")),
+         n_el = factor(n_el, levels = c(1, 2, 3), labels = c("1-10", "11-100", "100+"))) %>% 
+  mutate_at(vars(starts_with(c("b_", "c_", "d_")), -starts_with("d_receiving_")), factor, levels = c(1, 2), labels = c("yes", "no")) %>% 
+  mutate_at(vars(starts_with(c("d_receiving", "e_receiving"))), factor, levels = c(1, 2, 3, 4), labels = c("no students", "few students", "some students", "most or all students")) %>% 
+  mutate_at(vars(starts_with("e_"), -starts_with("e_receiving_")), factor, levels = c(1, 2, 3), labels = c("all languages", "some languages", "none")) %>% 
+  #add ID number column for manipulation and matching
+  rowid_to_column("id")
+```
+
+Create a composite `resources` score for outcome variable:  
+* yes = 1  
+* no = 0  
+* all = 1  
+* some = .5  
+* none = 0  
+
+Also create other subscores for subgroups:  
+* `instruction_score` (b)  
+* `language_support_score` (c)  
+* `noninstruct_service_score` (d)  
+* `hs_parent_service_score` (e)  
+* all languages = 1  
+* some languages = .5  
+* none = 0  
+
+```{r scores}
+scores <- dat %>% 
+  select(-c(2:4, 23, 24, 29, 30)) %>% 
+  mutate_at(vars(-id), recode, "yes" = 1, "no" = 0, "all languages" = 1, "some languages" = 0.5, "none" = 0) %>% 
+  mutate(resource_score = rowSums(.[setdiff(names(.),"id")], na.rm = TRUE)) %>% 
+  rowwise() %>% 
+  mutate(instruction_score = sum(c_across(starts_with("b_")), na.rm = TRUE),
+         language_support_score = sum(c_across(starts_with("c_")), na.rm = TRUE),
+         noninstruct_service_score = sum(c_across(starts_with("d_")), na.rm = TRUE),
+         hs_parent_service_score = sum(c_across(starts_with("e_")), na.rm = TRUE)) %>% 
+  select(id, ends_with("_score"))
+
+centered_scores <- scores %>% 
+  ungroup() %>% 
+  mutate_at(vars(ends_with("_score")), center) %>% 
+  rename_at(vars(-id), function(x) paste0(x, "_c"))
+```
+
+Final subscore:
+
+`bilingual_content_score`
+* bilingual_content = 1  
+* twi_dual_content = 1  
+* integrated_esl = 1  
+* push_pull_esl = .5  
+* mono_para = .5  
+* bilingual_para = 1  
+* sheltered_content = .5  
+* other_instructional = .5  
+
+*Note:* Score for instructional language services in this subgroup is based on the instruction score but gives a higher score to bilingual methods used. This is a composite measure made specifically for running a bilingual content instruction focused analysis because the generated score is based on prioritizing multilingual hiring and instruction, without penalizing services and supports solely in English.
+
+```{r subscores}
+bilingual_score <- dat %>% 
+  select(id, starts_with("b_")) %>% 
+  mutate_at(vars(c(2:4, 7)), recode, "yes" = 1, "no" = 0) %>% 
+  mutate_at(vars(c(5, 6, 8, 9)), recode, "yes" = .5, "no" = 0) %>% 
+  rowwise() %>% 
+  mutate(bilingual_content_score = sum(c_across(starts_with("b_")), na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  select(id, bilingual_content_score) %>% 
+  mutate(bilingual_content_score_c = center(bilingual_content_score))
+```
+
+Join scores to dataframe and drop prefixes.
+
+```{r join scores}
+full_set <- reduce(list(dat, scores, centered_scores, bilingual_score), dplyr::left_join, by = "id")
+#test turn cols to list to drop strings
+test_list <- list()
+for(i in 1:ncol(full_set)) {
+  test_list[[i]] <- full_set[ ,i]
+}
+names(test_list) <- colnames(full_set)
+#map through
+pmap_chr(test_list, ~ str_remove(.x, c("b_", "c_", "d_", "e_")))
+
+map_chr(test_vec[[names]], ~ .x %>% 
+      rename_all(~ str_remove(.x, c("b_", "c_", "d_", "e_"))))
+
+save <- map_chr(test_vec[["names"]], ~ str_remove(.x, c("^b_", "^c_", "^d_", "^e_")))
+
+map(full_set$)
+
+test_vec <- attributes(test_list)
+
+```
+
