@@ -204,7 +204,7 @@ Possible predictions:
 Start by subsetting the data and saving a smaller workable datafile for analysis.
 
 ```{r subset}
-sm_dat <- data %>% 
+sm_dat <- raw_data %>% 
   select(urban, oereg, q1, t_q2, #demographics
          q3a, q3b, q3c, q3d, q3e, q3f, q3g, q3h, #instructional language support
          q11a, q11b, q11c, q11d, q11e, q11f, #additional language support
@@ -220,7 +220,7 @@ Rename and recode cols
 dat <- import(here("data", "hsel_data.csv")) %>% 
   select(-q1)#drop forgotten col
 #rename cols
-new_col <- c("region_type", "region", "n_el", "b_bilingual_content", "b_twi_dual_content", "b_integrated_esl", "b_push_pull_esl", "b_mono_para", "b_bilingual_para", "b_sheltered_content", "b_other_instructional", "c_tutoring", "c_summer", "c_credit_recovery", "c_mentoring", "c_distance_ed", "c_other", "d_acad_info_primary", "d_cte_info_primary", "d_translation_primary", "d_interpreter_primary", "d_receiving_content_primary", "d_receiving_instruct_support_primary", "e_acad_info_other", "e_cte_info_other", "e_translation_other", "e_interpreter_other", "e_receiving_content_other", "e_receiving_instruct_support_other")
+new_col <- c("region_type", "region", "n_el", "b_bilingual_content", "b_twi_dual_content", "b_integrated_esl", "b_push_pull_esl", "b_mono_para", "b_bilingual_para", "b_sheltered_content", "b_other_instruct", "c_tutoring", "c_summer", "c_credit_recovery", "c_mentoring", "c_distance_ed", "c_other", "d_acad_info_primary", "d_cte_info_primary", "d_translation_primary", "d_interpreter_primary", "d_receiving_content_primary", "d_receiving_instruct_support_primary", "e_acad_info_other", "e_cte_info_other", "e_translation_other", "e_interpreter_other", "e_receiving_content_other", "e_receiving_instruct_support_other")
 colnames(dat) <- new_col
 #recode cols
 dat <- dat %>% 
@@ -257,7 +257,7 @@ scores <- dat %>%
   mutate_at(vars(-id), recode, "yes" = 1, "no" = 0, "all languages" = 1, "some languages" = 0.5, "none" = 0) %>% 
   mutate(resource_score = rowSums(.[setdiff(names(.),"id")], na.rm = TRUE)) %>% 
   rowwise() %>% 
-  mutate(instruction_score = sum(c_across(starts_with("b_")), na.rm = TRUE),
+  mutate(instruct_score = sum(c_across(starts_with("b_")), na.rm = TRUE),
          language_support_score = sum(c_across(starts_with("c_")), na.rm = TRUE),
          noninstruct_service_score = sum(c_across(starts_with("d_")), na.rm = TRUE),
          hs_parent_service_score = sum(c_across(starts_with("e_")), na.rm = TRUE)) %>% 
@@ -298,24 +298,41 @@ bilingual_score <- dat %>%
 Join scores to dataframe and drop prefixes.
 
 ```{r join scores}
-full_set <- reduce(list(dat, scores, centered_scores, bilingual_score), dplyr::left_join, by = "id")
-#test turn cols to list to drop strings
-test_list <- list()
-for(i in 1:ncol(full_set)) {
-  test_list[[i]] <- full_set[ ,i]
-}
-names(test_list) <- colnames(full_set)
-#map through
-pmap_chr(test_list, ~ str_remove(.x, c("b_", "c_", "d_", "e_")))
+full_set <- reduce(list(dat, scores, centered_scores, bilingual_score), dplyr::left_join, by = "id") %>% 
+  rename_at(vars(starts_with("b_")), function(x) str_remove(x, "^b_")) %>% 
+  rename_at(vars(starts_with("c_")), function(x) str_remove(x, "^c_")) %>% 
+  rename_at(vars(starts_with("d_")), function(x) str_remove(x, "^d_")) %>% 
+  rename_at(vars(starts_with("e_")), function(x) str_remove(x, "^e_"))
+#export
+export(full_set, "data/clean_hsel_data.csv")
+```
 
-map_chr(test_vec[[names]], ~ .x %>% 
-      rename_all(~ str_remove(.x, c("b_", "c_", "d_", "e_"))))
+Create a data dictionary and export to data folder.
+*in progress*
 
-save <- map_chr(test_vec[["names"]], ~ str_remove(.x, c("^b_", "^c_", "^d_", "^e_")))
+```{r dictionary}
+#column names in final data set
+renamed_cols <- colnames(full_set)
+#column names in original data set
+original_cols <- c("id", colnames(sm_dat)) %>% 
+  str_remove("q1")
+original_cols <-  unique(original_cols[original_cols != ""])
+#labels for tables and plots
+nice_labs <- renamed_cols %>% 
+  str_replace_all("_", " ") %>% 
+  str_replace_all("[:blank:]c$", " (centered)") %>% 
+  str_replace_all("instruct", "instructional") %>% 
+  str_replace_all("acad", "academic") %>% 
+  str_replace_all("mono", "monolingual") %>% 
+  map_chr(., toupper)
+#original questions and descriptions tied to column
+description <- import(here("data", "inc-data-info.csv")) %>% 
+  clean_names %>% 
+  rename(renamed_cols = variable_name)
+map_chr(description$renamed_cols, tolower)
+#bind all
+dictionary <- list(renamed_cols, original_cols, nice_labs, description)
 
-map(full_set$)
-
-test_vec <- attributes(test_list)
 
 ```
 

@@ -1,0 +1,132 @@
+Variable Name,Description
+URBAN,"Community type
+1 = City
+2 = Suburban
+3 = Town
+4 = Rural"
+OEREG,"REGION
+1 = Northeast
+2 = Southeast
+3 = Central
+4 = West"
+T_Q2,"Recode of Q2 in categories: What is the current total number of high school English learners enrolled in your school district?
+-8 = Inapplicable
+1 = 1 to 10 English learners
+2 = 11 to 100 English learners
+3 = 101 or more English learners"
+Q3A,"Does your district provide bilingual instruction for English learners in one or more content classes for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q3B,"Does your district provide two-way bilingual/dual language program for English learner and English proficient students in one or more content classes for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q3C,"Does your district provide English as a Second Language (ESL) instruction in scheduled class periods for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q3D,"Does your district provide English as a Second Language (ESL) push-in or pull-out instruction for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q3E,"Does your district provide instructional support by a paraprofessional who does not speak the student’s native language for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q3F,"Does your district provide instructional support by a paraprofessional who speaks the student’s native language for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q3G,"Does your district provide sheltered English/content instruction for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q3H,"Does your district provide any other (please specify) programs or approaches for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q11A,"Does your district have tutoring programs or services designed specifically for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q11B,"Does your district have summer school programs or services designed specifically for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q11C,"Does your district have a credit recovery course/program designed specifically for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q11D,"Does your district have a mentoring program designed specifically for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q11E,"Does your district have a distance education course/program designed specifically for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q11F,"Does your district have other (please specify) programs or services designed specifically for English learners in high school?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q12APT1,"Does your district have written information about high school academic programs in your district available in the most common native language for high school English leaners and their parents and guardians?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q12BPT1,"Does your district have written information about high school career and technical education programs in your district available in the most common native language for high school English learners and their parents and guardians?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q12CPT1,"Does your district have translation services upon request for printed materials available in the most common native language for high school English learners and their parents and guardians?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q12DPT1,"Does your district have interpreters upon request for school meetings or calls available in the most common native language for high school English learners and their parents and guardians?
+-8 = Inapplicable
+1 = Yes
+2 = No"
+Q13APT1,"What is the approximate number of high school English learners in the district with the most common native language used for content instruction?
+-8 = Inapplicable
+1 = No students
+2 = Few students
+3 = Some students
+4 = Most or all students"
+Q13APT2,"What is the approximate number of high school English learners in the district with the most common native language used for instructional support only?
+-8 = Inapplicable
+1 = No students
+2 = Few students
+3 = Some students
+4 = Most or all students"
+Q12APT2,"Does your district have written information about high school academic programs in your district available in other native languages of ELs in the district?
+-8 = Inapplicable
+1 = Yes, for all languages
+2 = Yes, for some languages
+3 = No"
+Q12BPT2,"Does your district have written information about high school career and technical education programs in your district available in other native languages of ELs in the district?
+-8 = Inapplicable
+1 = Yes, for all languages
+2 = Yes, for some languages
+3 = No"
+Q12CPT2,"Does your district have translation services upon request for printed materials available in other native languages of ELs in the district?
+-8 = Inapplicable
+1 = Yes, for all languages
+2 = Yes, for some languages
+3 = No"
+Q12DPT2,"Does your district has interpreters upon request for school meetings or calls available in other native languages of ELs in the district?
+-8 = Inapplicable
+1 = Yes, for all languages
+2 = Yes, for some languages
+3 = No"
+Q13BPT1,"What is the approximate number of high school English learners in the district with another non-English language used for content instruction?
+-8 = Inapplicable
+1 = No students
+2 = Few students
+3 = Some students
+4 = Most or all students"
+Q13BPT2,"What is the approximate number of high school English learners in the district with another non-English language used for instructional support only?
+-8 = Inapplicable
+1 = No students
+2 = Few students
+3 = Some students
+4 = Most or all students"

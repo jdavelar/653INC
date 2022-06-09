@@ -1,0 +1,141 @@
+---
+title: "Analysis"
+author: "Janette Avelar"
+date: '2022-06-07'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(janitor)
+library(haven)
+library(rio)
+library(psych)
+library(gmodels) #logistic regression functions
+source(here("scripts", "functions.R"))
+
+dat <- import(here("data", "clean_hsel_data.csv"))
+```
+
+Task 1: Descriptive  
+Understand how different services designed for ELs are distributed across region types within regions of the US.  
+Rationale: Predict that the average number of services will vary.  
+
+```{r services}
+reg_desc <- dat %>% 
+  select(region, ends_with(c("score"))) %>% 
+  group_by(region) %>% 
+  nest() %>% 
+  mutate(avg_scores = list(pmap(data, ~mean(.x, na.rm = TRUE)))) #%>% 
+  #split(.$region, .$avg_scores)
+
+# reg_desc_2 <- dat %>% 
+#   select(region, ends_with("score")) %>% 
+#   by(., .$region, function(x) list(avg_scores=x), simplify = FALSE) %>% 
+#   pmap(list(.$central, .$northeast, .$southeast, .$west), ~mean)
+# 
+# attributes(reg_desc_2)
+
+reg_avg <- data.frame(central = c("central", central_avg),
+                      southeast = c("southeast", reg_desc[[3]][[1]]))
+
+central_avg <- reg_desc[[3]][[3]] %>% 
+  as.data.frame() #%>% 
+  rename_with(., function(x) paste0("central_", x), .cols = everything())
+
+southeast_avg <- reg_desc[[3]][[1]] %>% 
+  as.data.frame() %>% 
+  rename_with(., function(x) paste0("southeast_", x), .cols = everything())
+
+west_avg <- reg_desc[[3]][[2]] %>% 
+  as.data.frame() %>% 
+  rename_with(., function(x) paste0("west_", x), .cols = everything())
+
+northeast_avg <- reg_desc[[3]][[3]] %>% 
+  as.data.frame() %>% 
+  rename_with(., function(x) paste0("northeast_", x), .cols = everything())
+
+reg_avg <- cbind(central_avg, southeast_avg, west_avg, northeast_avg) %>% 
+  pivot_longer(cols = c(1:24),
+               names_to = "score",
+               values_to = "region",
+               names_sep)
+
+# The output is grouped by row, which makes modelling particularly easy
+# models <- mtcars %>%
+#   nest_by(cyl) %>%
+#   mutate(model = list(lm(mpg ~ wt, data = data)))
+reg_desc[[2]][[1]]
+```
+
+Simple models  
+Predict instructional score and language support scores (centered to get an idea of average) using region in the country as a predictor grouped within region types.  
+
+```{r simple mods}
+reg_desc_mod <- dat %>% 
+  map_at(c(5:22), numeric_dichot) %>% 
+  as.data.frame()
+  group_by(region_type) %>% 
+  nest() %>% 
+  mutate(instruct_model = list(~ lm(instruct_score_c ~ region, data = reg_desc$data)),
+         language_support_model = list(~ lm(language_support_score_c ~ region, data = reg_desc$data)),
+         region_instruct_mean = map(data, ~mean(.x$instruct_score, na.rm = TRUE)),
+         region_lang_support_mean = map(data, ~mean(.x$language_support_score, na.rm = TRUE)))
+```
+
+
+Possible predictions:  
+* could use logistic regression (or regular regression, but odds may be handier and you have binomial vars) to predict:  
++ urban areas will provide more resources  
++ schools with high concentrations of ELs in their district will provide more content instruction  
++ schools with high concentrations of ELs speaking other languages will provide more other language support
+
+```{r regression models}
+# regression model 1
+# outcome = resource score (centered)
+# predictor = number of students speaking majority non-English language
+region_mod <- dat %>% 
+  select(id, region_type, resource_score_c, receiving_content_primary) %>% 
+  mutate(region_type = factor(region_type, levels = c("city", "suburb", "town", "rural"))) %>% 
+  split(.$region_type) %>% 
+  map(~lm(resource_score_c ~ receiving_content_primary, data = .)) %>% 
+  map_dfc("coefficients") %>% 
+  cbind(term = c("intercept", "slope_most", "slope_none", "slope_some"), .) %>% 
+  ggplot(aes(resource_score_c, receiving_content_primary)) +
+  
+# regression model 2
+# outcome = resource score (centered)
+# predictor = number of students speaking non-majority non-English language
+# region_mod2 <- dat %>% 
+#   select(id, region_type, resource_score_c, receiving_content_primary, receiving_content_other) %>% 
+#   mutate(region_type = factor(region_type, levels = c("city", "suburb", "town", "rural"))) %>% 
+#   split(.$region_type) %>% 
+#   map(~lm(resource_score_c ~ receiving_content_primary + receiving_content_other, data = .)) %>% 
+#   map_dfc("coefficients") %>% 
+#   cbind(term = c("intercept", "slope_most", "slope_none", "slope_some"), .)
+
+#compare mods
+# anova(region_mod, region_mod2, test = "Chisq")
+
+#get intercept and slope for each
+ints_slopes <- nels_88 %>% 
+  split(.$schoolid) %>% # split df into list of dfs, one per school
+  map(~ lm(mathscore ~ timeonmath, data = .)) %>% # run OLS predicting score from time
+  map_dfc("coefficients") %>% # get coefficients for each in a df
+  cbind(term = c("intercept", "b_timeonmath"), .) %>% # identify the row with intercept and slope
+  gather(schoolid, estimate, -term) %>% # gather
+  spread(term, estimate)     # spread so we have a row per school, 
+                             # and a column for int and slope
+```
+
+Log model
+
+```{r}
+log_model_1 <- glm(reported ~ 1 + offen_behav_c,
+                   data = log_df, family = "binomial")
+```
+
