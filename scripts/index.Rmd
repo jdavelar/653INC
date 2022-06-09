@@ -1,9 +1,12 @@
 ---
-title: "Untitled"
+title: "EL Services and Programs in the U.S."
 output: 
   flexdashboard::flex_dashboard:
     orientation: columns
-    vertical_layout: fill
+    vertical_layout: scroll
+    theme: readable
+    social: menu
+    source_code: https://github.com/jdavelar/653INC.git
 ---
 
 ```{r setup, include=FALSE}
