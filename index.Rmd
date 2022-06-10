@@ -2,38 +2,51 @@
 title: "EL Services and Programs in the U.S."
 output: 
   flexdashboard::flex_dashboard:
-    orientation: columns
+    orientation: rows
     vertical_layout: scroll
     theme: readable
     social: menu
     source_code: https://github.com/jdavelar/653INC.git
+editor_options: 
+  chunk_output_type: console
 ---
 ```{r}
 library(flexdashboard)
 #library(shiny)
 library(DT)
 library(here)
+library(broom)
+library(reshape2)
+library(tidyverse)
+library(here)
+library(janitor)
+library(haven)
+library(rio)
+library(psych)
 #source(here("scripts", "analysis.Rmd"))
+source(here("scripts", "functions.R"))
+
+dat <- import(here("data", "clean_hsel_data.csv"))
 ```
 
 Sidebar Title {.sidebar}
 ======================================================================
-Author: Janette Avelar  
-Course: EDLD 653 Functional Programming (Spring 2021)
+**Author**: Janette Avelar  
+**Course**: EDLD 653 Functional Programming (Spring 2021)  
 
 *Project submitted to fulfill requirements for INCOMPLETE in Spring 2022.*
 
 Data used was gathered from the Institute of Education Sciences (IES) through the National Center for Education Statistics (NCES).  
 
-Data is publicly available through the NCES website as part of the "Programs and Services for High School English Learners" questionnaire implemented during the 2015-16 academic year. The survey was designed to be completed by the person or people at the district deemed most knowledgeable about programs and services for English Learner-classified students at the high school level.
+Data is publicly available through the NCES website as part of the *Programs and Services for High School English Learners* questionnaire implemented during the 2015-16 academic year. The survey was designed to be completed by the person or people at the district deemed most knowledgeable about programs and services for English Learner-classified students at the high school level.
 
-Data Sources:
+**Data Sources:**
  
 [Program and Services for High School English Learners Data](https://nces.ed.gov/pubsearch/pubsinfo.asp?pubid=2016150)
 
 [NCES Full Report 2015-16](https://nces.ed.gov/pubs2016/2016150.pdf)
 
-Project Purpose
+Purpose
 =======================================================================
 Column
 -----------------------------------------------------------------------
@@ -42,20 +55,451 @@ Column
 
 #### The State of English Learner Education in the U.S.
 
-**What is the purpose of this project?**
+**Project Purpose and Goals**  
 
-The following visualizations are intended to.....
+The following tables and visualizations are intended to give a broad overview of the programs, resources, and services high schools provided to English learner-classified students and their families as reported by the questionnaire responses. The primary objective for this project was to practice beginning functional programming skills, and thus the majority of the effort was placed in creating the tables and visualizations rather than on ensuring sound or thorough analysis.  
 
-#### References
+The project utilized both descriptive approaches to the data to summarize how services and programs differed across regions and locale types, and quantitative approaches through the use of simple regression models. The questionnaire was deployed to central, western, northeastern, and southeastern United States and thus the original coding schemes were used to guide analysis. In some cases, locale types were modified from the original categories (city, suburban, town, rural) to a dichotomous urban/rural category for ease of interpretation.  
 
-Viz 1 {data-orientation=rows}
+I imagined a research team as the audience for this project, meaning little interpretation is offered as it's meant to be a springboard for discussion and further analysis.
+
+**Other things to note**  
+
+In order to conduct analyses, I created a set of scores that would provide me with the necessary continuous variables to compare regional and locale-based differences for this dataset. 
+
+These include scores for:  
+* instructional services and programs;  
+* language supports offered;  
+* non-instructional services offered;  
+* high school and parent services offered (including translation and interpretation services);  
+* and an overall score for resources offered.  
+
+In addition, I created a *bilingual content* score which created a composite score based on the type of services and programs that were offered to EL-identified students without penalizing monolingual approaches. In other words, rather than creating a score that indicated simply whether a school offered a given service/program or not, the bilingual score differs by prioritizing bilingual approaches for a full score of "1" and a half score for English-based services and programs.
+
+All scores were pulled and created from the corresponding subgroups in the questionnaire:  
+* demographics  
+* instructional language services  
+* additional language supports  
+* non-instructional language services in the most common language for ELs  
+* services available for ELs and their parents/guardians  
+
+For more information, please seek out the source code (`data-clean.Rmd` and/or `analysis.Rmd`) which includes notes on variable manipulation.
+
+
+Tables {data-orientation=rows}
 =======================================================================
 
 Column
 -----------------------------------------------------------------------
 
-### Descriptive Information
+### Descriptive Tables
 
-```{r}
-#regional_service_scores_table
+#### Table 1
+
+The following table is intended to describe how different services designed for EL-identified students are distributed across regions of the US. The score shown in  each column is a combined average score for each region within each given composite score.
+
+I anticipated that the average number of services would vary by region, which seemed to be the case, though to a much lesser degree than expected. 
+
+Unfortunately, across all regions the average services and programs appeared to be much lower than the maximum possible score. This may be due to error in creating composite scores, as it's very likely schools will choose certain programs over others rather than utilizing multiple types of programs and services. In a future iteration of this analysis, I would more carefully select criteria for composite scores as informed by practice.
+
+```{r regional services}
+#prep data and get mean scores for each region
+reg_desc <- dat %>% 
+  select(region, ends_with(c("score"))) %>% 
+  group_by(region) %>% 
+  nest() %>% 
+  mutate(avg_scores = list(pmap(data, ~mean(.x, na.rm = TRUE)))) %>% 
+  select(-data)
+#extract list elements
+reg_avg <- data.frame(central = c(unlist(reg_desc$avg_scores[[3]])),
+                southeast = c(unlist(reg_desc$avg_scores[[1]])),
+                west = c(unlist(reg_desc$avg_scores[[2]])),
+                northeast = c(unlist(reg_desc$avg_scores[[4]]))) %>% 
+  #pretty labels for table
+  rownames_to_column(., "Average Score") %>% 
+  mutate(`Average Score` = str_replace_all(`Average Score`, "_", " "),
+         `Average Score` = str_replace_all(`Average Score`, "instruct", "instructional"),
+         `Average Score` = str_replace(`Average Score`, "hs", "high school and")) %>% 
+  mutate_at(vars(-c(1)), round, 2) %>% 
+  mutate(`Max Score Possible` = c(22, 8, 6, 4, 4, 6))
+#table
+regional_service_scores_table <- datatable(reg_avg)
+regional_service_scores_table
 ```
+
+#### Table 2
+
+Similar to the table above, the following table is meant to demonstrate how different services are distributed with locale as the focal variable.
+
+```{r locale services}
+#prep data and get mean scores for each locale
+locale_desc <- dat %>% 
+  select(region_type, ends_with(c("score"))) %>% 
+  group_by(region_type) %>% 
+  nest() %>% 
+  mutate(avg_scores = list(pmap(data, ~mean(.x, na.rm = TRUE)))) %>% 
+  select(-data)
+#extract list elements
+locale_avg <- data.frame(suburb = c(unlist(locale_desc$avg_scores[[1]])),
+                city = c(unlist(locale_desc$avg_scores[[2]])),
+                town = c(unlist(locale_desc$avg_scores[[3]])),
+                rural = c(unlist(locale_desc$avg_scores[[4]]))) %>% 
+  #pretty labels for table
+  rownames_to_column(., "Average Score") %>% 
+  mutate(`Average Score` = str_replace_all(`Average Score`, "_", " "),
+         `Average Score` = str_replace_all(`Average Score`, "instruct", "instructional"),
+         `Average Score` = str_replace(`Average Score`, "hs", "high school and")) %>% 
+  mutate_at(vars(-c(1)), round, 2)
+#table
+locale_service_scores_table <- datatable(locale_avg)
+locale_service_scores_table
+```
+
+#### Table 3
+
+The final table considers the relationship between both region and locale, with the idea in mind that more differences would appear at a more granular level and that the differences may tell us something about how urban and rural schools differ in their approaches to providing services and programs for English learner-identified students.
+
+Indeed, we are able to see some differences in scores with much higher scores for overall resources provided in western, central, and northeastern cities. (As a side note, it's surprising that this dataset did not include the southwestern United States as it houses the highest concentrations of English learners.)
+
+In a future iteration of this project, I would love to look at the specific services and programs offered rather than the combined score, as this seems to obscure some meaningful data that I did not have enough time to look at.
+
+```{r locale within region mean difference}
+#mean diffs again, by double grouped nesting
+mean_diffs <- dat %>% 
+  select(region, region_type, ends_with(c("score"))) %>% 
+  group_by(region, region_type) %>% 
+  nest() %>% 
+  mutate(avg_scores = list(pmap(data, ~mean(.x, na.rm = TRUE)))) %>% 
+  select(-data)
+#first bar chart should just show averages of each score nested within
+#extract list elements
+nested_avg <- data.frame(southeast_city = c(unlist(mean_diffs$avg_scores[[4]])),
+                southeast_suburb = c(unlist(mean_diffs$avg_scores[[1]])),
+                southeast_town = c(unlist(mean_diffs$avg_scores[[16]])),
+                southeast_rural = c(unlist(mean_diffs$avg_scores[[13]])),
+                west_city = c(unlist(mean_diffs$avg_scores[[2]])),
+                west_suburb = c(unlist(mean_diffs$avg_scores[[14]])),
+                west_town = c(unlist(mean_diffs$avg_scores[[5]])),
+                west_rural = c(unlist(mean_diffs$avg_scores[[2]])),
+                central_city = c(unlist(mean_diffs$avg_scores[[7]])),
+                central_suburb = c(unlist(mean_diffs$avg_scores[[15]])),
+                central_town = c(unlist(mean_diffs$avg_scores[[3]])),
+                central_rural = c(unlist(mean_diffs$avg_scores[[10]])),
+                northeast_city = c(unlist(mean_diffs$avg_scores[[8]])),
+                northeast_suburb = c(unlist(mean_diffs$avg_scores[[11]])),
+                northeast_town = c(unlist(mean_diffs$avg_scores[[9]])),
+                northeast_rural = c(unlist(mean_diffs$avg_scores[[12]]))) %>% 
+  rownames_to_column(., "Average Score") %>% 
+  mutate(`Average Score` = str_replace_all(`Average Score`, "_", " "),
+         `Average Score` = str_replace_all(`Average Score`, "instruct", "instructional"),
+         `Average Score` = str_replace(`Average Score`, "hs", "high school and")) %>% 
+  pivot_longer(cols = !`Average Score`,
+               names_to = c("region", "locale_type"), 
+               names_sep = "_",
+               values_to = "score") %>% 
+  pivot_wider(names_from = "locale_type",
+              values_from = "score") %>% 
+  unite("Average Score by Region", c(region, `Average Score`), sep = " ")
+
+nested_region_locale_table <- nested_avg %>% 
+  mutate_at(vars(-c(1)), round, 2) %>% 
+  datatable()
+nested_region_locale_table
+```
+
+Differences
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+#### Visualizations by Region *and* Locale
+
+The following charts are meant to guide us further in considering the relationship between the average scores by region *and* locale. To create this visualization, I converted the raw scores from the composite measures displayed in the tables into percentages. For ease of comparison, suburbs and urban areas were condensed into a single `urban` value, and rural areas and towns were similarly condensed into a single `rural` value.
+
+The mean difference between urban and rural values was used to consider how the differences compared in an easier-to-read format.
+
+An interesting thing to note is that non-instructional services and supports was drastically higher than any other composite measure. This composite score covered services in the most common non-English language in the school and included services such as providing information about academic and career and technical (CTE) programs, providing written translations for documents sent to parents/guardians, and providing interpreter services when necessary.
+
+On the other hand, the language support score is especially low in rural schools nationally, and is similarly low in comparison to the other scores for urban areas, though less so than in its urban counterparts. This composite score measured availability of tutoring, summer school, credit recovery options, mentoring, distance education options, and any other additional language-focused services made available.
+
+This comparison got me thinking about the tension between compliance and innovation, and particularly how best to encourage schools to build these types of services that are beneficial for students overall and especially those who are historically marginalized. From this visualization we can see there is a lot of room for growth in building language-focused services.
+
+Row 
+----------------------------------------------------------------------
+### Region/Locale Visualizations
+
+```{r mean diff viz, fig.dim = c(10, 10)}
+nested_diffs <- nested_avg %>% 
+  mutate(rural = (town + rural) / 2,
+         urban = (suburb + city) / 2) %>% 
+  select(-c(city, suburb, town)) %>% 
+  #create percentage from max points for each score to make it meaningful
+    #then create mean difference
+#  instructional score max possible = 8   
+#  language support score max possible = 6    
+#  non instructional service score max possible = 4   
+#  high school and parent service score max possible = 4  
+#  bilingual content score max possible = 6   
+#  overall resource max possible = 22 
+  mutate(denom = c(rep(22, 4), rep(8, 4), rep(6, 4), rep(4, 4), rep(4, 4), rep(6, 4)),
+         rural_pct = rural / denom,
+         urban_pct = urban / denom,
+         difference = raw_diff(urban_pct, rural_pct))
+
+#prep data for plot
+mean_diff_plot <- nested_diffs %>% 
+  select(-denom) %>% 
+  mutate(region = c(rep(c("southeast", "west", "central", "northeast"), 6))) %>% 
+  rename(avg_score = `Average Score by Region`,
+         pct_urban = urban_pct,
+         pct_rural = rural_pct) %>% 
+  mutate(avg_score = str_remove_all(avg_score, c("southeast ", "west ", "central ", "northeast "))) %>% 
+  pivot_longer(cols = c(pct_rural, pct_urban),
+               names_to = "locale",
+               names_prefix = "pct_",
+               values_to = "percent")
+#labels for plot
+diff_labs <- data.frame(y = mean_diff_plot$percent,
+                        pct = c("", "7.83", "", "7.66", "", "11.53", "", "14.81", "", "7.46", "", "6.05", "", "14.05", "", "15.40", "", "6.41", "", "8.98", "", "7.90", "", "15.04", "", "5.67", "", "12.13", "", "2.69", "", "9.19", "", "12.88", "", "4.41", "", "20.78", "", "18.89", "", "8.52", "", "6.04", "", "14.17", "", "17.41"))
+#plot
+faceted_mean_diff <- ggplot(mean_diff_plot, aes(avg_score, percent, fill = locale)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_fill_manual(values = custom_cols) +
+    geom_text(aes(x = avg_score, y = percent + .025, label = diff_labs$pct),
+              color = "#c05750", size = 5) +
+    labs(x = "",
+         y = "Score Percentages",
+         title = "Mean Difference in Locale Scores by Region") +
+    facet_wrap(vars(region)) +
+    theme_final() +
+    theme(
+        strip.background = element_rect(color="#d5d1c6", fill="#d5d1c6", size=1.5, linetype="solid"),
+        strip.text.x = element_text(size = 10, color = "#c05750", face = "bold.italic"),
+        strip.text.y = element_text(size = 10, color = "#c05750", face = "bold.italic"))
+faceted_mean_diff
+```
+
+Largest Differences {data-orientation=rows}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+### Region/Locale Visualizations
+#### Visualizations *Across* Regions and Locale
+
+I was intrigued by the differences this plot brought to the surface, and dug further into this area by comparing the top differences across all groups. I considered pulling top 5 differences for each region and locale, but I was curious if one region would be more heavily represented than the others.
+
+This did, in fact, happen to be the case.
+
+Differences between urban and rural areas were more pronounced in the Northeast, making up 4 of the total top 5 differences. The final top score was in a central region. It may be interesting to dig further into this finding to explore why language-focused supports, instructional programs and models, high school student and parent services, and overall bilingual offerings differed so much between urban and rural areas in the Northeast. 
+
+It's worth noting that the composite score for high school and student and parent services showed up in 2 of the 5 total top differences. This score was very similar to the non-instructional language services score that included information about academic and CTE programs, written translations, and interpreter services for students and their families. This score differed in that it focused on other non-English languages represented in the school that were not the predominant non-English language. This is very telling about the services that may be available for speakers of other languages as they made up the 2 largest differences overall. This may in part be due to representation, as urban areas often show higher diversity in non-English language composition, but I am hesitant to make that speculation as it obscures the potential diversity of non-English languages spoken in rural areas--something which happens all too frequently as rural areas are (often incorrectly) assumed to be homogeneous, monolingual, White spaces.
+
+Row 
+----------------------------------------------------------------------
+
+### Largest Differences Visualized
+
+```{r largest diffs, fig.dim = c(10, 10)}
+lrg_diff <- mean_diff_plot %>% 
+  select(-c(rural, urban)) %>% #these columns keep confusing me...
+  slice_max(difference, n = 10) %>% 
+  unite("avg_score", c(avg_score, region), sep = " - ")
+#almost all largest differences occur in the Northeast, that's interesting.
+#additionally, parent and HS student services are represented twice, in NE and also in central regions.
+#going to make a plot to indicate largest differences, with labels to mark these findings.
+lrg_diff_labs <- data.frame(y = c(lrg_diff$percent),
+                        labs = c("", lrg_diff$difference[1], "", lrg_diff$difference[3], "", lrg_diff$difference[5], "", lrg_diff$difference[7], "", lrg_diff$difference[9])) %>% 
+  mutate(add = rep(.015, 10),
+         y = y + add)
+
+lrg_diff_plot <- lrg_diff %>% 
+  ggplot(aes(avg_score, percent, fill = locale)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = custom_cols) +
+  labs(x = "",
+       y = "Score Percentages",
+       title = "The Majority of the Largest Differences Occurred in the Northeast") +
+  geom_text(aes(x = avg_score, y = lrg_diff_labs$y, label = lrg_diff_labs$labs),
+                color = "#c05750", size = 6) +
+  theme_final()
+lrg_diff_plot
+```
+
+Comparing Scores {data-orientation=rows}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+#### How do scores compare across regions?
+
+The following visualization is another way to conceptualize how regional scores for subareas differed by using centered--rather than raw--scores.
+
+As indicated in the plot, all scores were set to a mean of 0 to allow for a comparative view. From the graph, we can see how schools in the western United States scored above average in all areas except for services for high school students and parents speaking non-English languages other than the predominant non-English language in the school. There may be some interesting insights to gather from disaggregated data about the west, though I'm inclined to wonder if this may be due to California, where a large proportion of the nation's English learner students attend school and which may have more robust services and programs as a result.
+
+On the other hand, schools in the central United States scored below the mean in all composite scores. In thinking about California in the dataset, I almost wonder if, assuming that it skewed the data, scores in the central, northeast, and southeast regions were pulled further below the mean than we might see otherwise. Either way, there is a lot of room to improve services and programs in these areas. 
+
+Finally, I'll also point out that the northeast scored below the mean on all scores *except* services for parents and high schoolers speaking non-dominant non-English languages, something surprising given the mean difference plot which showed the same category had the highest difference between urban and rural areas. This spiked further questions about the nature of the relationship between urban and rural areas in the Northeast.
+
+Row 
+----------------------------------------------------------------------
+
+### Regional Scores Visualized
+
+```{r avg scores viz 2, fig.dim = c(10, 10)}
+reg_desc_mod <- dat %>% 
+  map_at(c(5:22), numeric_dichot) %>% 
+  as.data.frame() %>% 
+  group_by(region) %>%
+  nest() %>% 
+  mutate(instruct_model = map(data, ~lm(instruct_score_c ~ region_type, data = .x)),
+         language_support_model = map(data, ~lm(language_support_score_c ~ region_type, data = .x)),
+         resource_model = map(data, ~lm(resource_score_c ~ region_type, data = .x)),
+         tidy_instruct = map(instruct_model, tidy),
+         tidy_support = map(language_support_model, tidy),
+         tidy_resource = map(resource_model, tidy),
+         region_instruct_mean = map(data, ~mean(.x$instruct_score, na.rm = TRUE)),
+         region_lang_support_mean = map(data, ~mean(.x$language_support_score, na.rm = TRUE))) %>% 
+  ungroup()
+
+#some kind of plot
+resource_plot <- reg_desc_mod %>% 
+  select(region, data) %>% 
+  unnest(data) %>% 
+  ungroup() %>% 
+  select(region, ends_with(c("score_c"))) %>% 
+  group_by(region) %>% 
+  summarize_all(mean) %>% 
+  melt(id = "region")
+
+#labels to put in plot
+resource_labs <- data.frame(x = rep("central", 24),
+                            y = c(resource_plot$value),
+                            lab = c("Overall Resources", rep("", 3), "Instructional Supports", rep("", 3), "Language Supports", rep("", 3), "Non-instructional Supports", rep("", 3), "Parent/EL Services", rep("", 3), "Bilingual Content", rep("", 3))) %>% 
+  mutate(add = c(rep(0, 4), 0.07, rep(0, 15), 0.12, rep(0, 3)),
+         y = y + add)
+
+
+ggplot(resource_plot, aes(region, value, color = variable, group = variable)) +
+  geom_line(size = 1) +
+  geom_text(aes(x = resource_labs$x, y = resource_labs$y, label = resource_labs$lab),
+            position = position_nudge(x = -.15, y = -.03)) +
+  scale_color_manual(values = custom_cols) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  theme_final() +
+  theme(legend.position = "none") +
+  labs(x = "",
+       y = "",
+       title = "Differences in (Centered)* Scores by Region",
+       caption = "*average indicated by dashed line")
+```
+
+Models {data-orientation=rows}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Simple Model Results
+
+#### How do scores compare with region as a predictor in a simple regression model?
+
+The final task I did was to run a simple regression model to see if instructional supports, language-specific supports, or overall resource supports differed as a function of region. The results of these models are reported in the following tables, with significant results marked by asterisks. 
+
+**Notes about the table**
+
+Per common conventions:  
+* A single asterisk denotes a p-value meeting the .05 threshold.  
+* Double asterisks denote a p-value meeting the .01 threshold.  
+* A triple asterisk denotes a p-value that meets the .001 threshold.  
+* `n.s.` denotes a p-value that was not significant.  
+
+The first table includes the results of the instructional supports model, using the centered composite instructional score as the outcome variable with region as the only predictor. Instructional language services included:  
+* bilingual programs offered that cover core content areas  
+* two-way immersion or dual language programs offered that cover core content areas  
+* integrated English as a second-language (ESL) model offered  
+* pull-in/push-out ESL models offered  
+* English speaking educational paraprofessional(s) available  
+* bilingual educational paraprofessional(s) that speak the primary non-English language spoken by the majority of English learner-identified students available  
+* sheltered content classrooms used  
+* other instructional supports used  
+
+#### Table 1: Results of Instructional Supports Model
+
+```{r model results}
+#save models
+#order = suburb, city, town, rural
+reg_col <- c("Southeast", rep("", 3), "West", rep("", 3), "Central", rep("", 3), "Northeast", rep("", 3))
+#create a for loop or something similar to build this argument for each group when you have more time
+instruct_mods <- reg_desc_mod %>% 
+  select(tidy_instruct) %>% 
+  unnest(tidy_instruct) %>% 
+  mutate(region = reg_col,
+         term = str_remove(term, "region_type"),
+         sig = ifelse(.05 > p.value & p.value > .01, paste0("*"), 
+                      ifelse(.01 > p.value & p.value > .001, paste0("**"), 
+                             ifelse(p.value < .001, paste0("***"), paste0("n.s."))))) %>% 
+  mutate_at(vars(-c(region, term, sig)), round, 4) %>% 
+  select(region, term, estimate, std.error, p.value, sig)
+
+support_mods <- reg_desc_mod %>% 
+  select(tidy_support) %>% 
+  unnest(tidy_support) %>% 
+  mutate(region = reg_col,
+         term = str_remove(term, "region_type"),
+         sig = ifelse(.05 > p.value & p.value > .01, paste0("*"), 
+                      ifelse(.01 > p.value & p.value > .001, paste0("**"), 
+                             ifelse(p.value < .001, paste0("***"), paste0("n.s."))))) %>% 
+  mutate_at(vars(-c(region, term, sig)), round, 4) %>%
+  select(region, term, estimate, std.error, p.value, sig)
+
+resource_mods <- reg_desc_mod %>% 
+  select(tidy_resource) %>% 
+  unnest(tidy_resource) %>% 
+  mutate(region = reg_col,
+         term = str_remove(term, "region_type"),
+         sig = ifelse(.05 > p.value & p.value > .01, paste0("*"), 
+                      ifelse(.01 > p.value & p.value > .001, paste0("**"), 
+                             ifelse(p.value < .001, paste0("***"), paste0("n.s."))))) %>% 
+  mutate_at(vars(-c(region, term, sig)), round, 4) %>%
+  select(region, term, estimate, std.error, p.value, sig)
+
+#tables
+instruct_mods_table <- datatable(instruct_mods)
+support_mods_table <- datatable(support_mods)
+resource_mods <- datatable(resource_mods)
+```
+
+
+
+```{r instruct support model}
+instruct_mods_table
+```
+
+#### Table 2: Results of Language Supports Model
+
+The second table includes the results of the additional language supports model, using the centered composite support score as the outcome variable with region as the only predictor. 
+
+Additional language-focused supports and services included:  
+* tutoring services  
+* summer programs  
+* credit recovery options  
+* mentoring  
+* distance education options  
+* other supports and services offered
+
+
+```{r language support model}
+support_mods_table
+```
+
+#### Table 3: Results of Total Resources Model
+
+The final table includes the results of the overall resources model which used the centered composite score for total resources offered as the outcome variable and region as the sole predictor.
+
+```{r total resource model}
+resource_mods
+```
+

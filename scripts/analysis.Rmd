@@ -83,10 +83,10 @@ locale_desc <- dat %>%
   mutate(avg_scores = list(pmap(data, ~mean(.x, na.rm = TRUE)))) %>% 
   select(-data)
 #extract list elements
-locale_avg <- data.frame(suburb = c(unlist(reg_desc$avg_scores[[1]])),
-                city = c(unlist(reg_desc$avg_scores[[2]])),
-                town = c(unlist(reg_desc$avg_scores[[3]])),
-                rural = c(unlist(reg_desc$avg_scores[[4]]))) %>% 
+locale_avg <- data.frame(suburb = c(unlist(locale_desc$avg_scores[[1]])),
+                city = c(unlist(locale_desc$avg_scores[[2]])),
+                town = c(unlist(locale_desc$avg_scores[[3]])),
+                rural = c(unlist(locale_desc$avg_scores[[4]]))) %>% 
   #pretty labels for table
   rownames_to_column(., "Average Score") %>% 
   mutate(`Average Score` = str_replace_all(`Average Score`, "_", " "),
