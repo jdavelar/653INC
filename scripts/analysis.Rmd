@@ -16,61 +16,220 @@ library(haven)
 library(rio)
 library(psych)
 library(gmodels) #logistic regression functions
+library(DT)
+library(broom)
+library(reshape2)
 source(here("scripts", "functions.R"))
 
 dat <- import(here("data", "clean_hsel_data.csv"))
 ```
 
+Task 1: Descriptive
+
+Present information on scores calculated for different components, including overall mean, SD, mins, and max.  
+* instructional score max possible = 8   
+* language support score max possible = 6    
+* noninstructional service score max possible = 4   
+* high school and parent service score max possible = 4  
+* bilingual content score max possible = 6   
+* overall resource max possible = 22   
+
+```{r descriptive stats on scores}
+options(scipen = 999)
+max_scores <- describe(dat) %>% 
+  select(mean, sd, min, max) %>% 
+  rownames_to_column(., "var_desc") %>% 
+  slice_tail(n = 12) %>% 
+  mutate_at(vars(-c(1)), round, 2)
+```
+
+
 Task 1: Descriptive  
 Understand how different services designed for ELs are distributed across region types within regions of the US.  
 Rationale: Predict that the average number of services will vary.  
 
-```{r services}
+```{r regional services}
+#prep data and get mean scores for each region
 reg_desc <- dat %>% 
   select(region, ends_with(c("score"))) %>% 
   group_by(region) %>% 
   nest() %>% 
-  mutate(avg_scores = list(pmap(data, ~mean(.x, na.rm = TRUE)))) #%>% 
-  #split(.$region, .$avg_scores)
-
-# reg_desc_2 <- dat %>% 
-#   select(region, ends_with("score")) %>% 
-#   by(., .$region, function(x) list(avg_scores=x), simplify = FALSE) %>% 
-#   pmap(list(.$central, .$northeast, .$southeast, .$west), ~mean)
-# 
-# attributes(reg_desc_2)
-
-reg_avg <- data.frame(central = c("central", central_avg),
-                      southeast = c("southeast", reg_desc[[3]][[1]]))
-
-central_avg <- reg_desc[[3]][[3]] %>% 
-  as.data.frame() #%>% 
-  rename_with(., function(x) paste0("central_", x), .cols = everything())
-
-southeast_avg <- reg_desc[[3]][[1]] %>% 
-  as.data.frame() %>% 
-  rename_with(., function(x) paste0("southeast_", x), .cols = everything())
-
-west_avg <- reg_desc[[3]][[2]] %>% 
-  as.data.frame() %>% 
-  rename_with(., function(x) paste0("west_", x), .cols = everything())
-
-northeast_avg <- reg_desc[[3]][[3]] %>% 
-  as.data.frame() %>% 
-  rename_with(., function(x) paste0("northeast_", x), .cols = everything())
-
-reg_avg <- cbind(central_avg, southeast_avg, west_avg, northeast_avg) %>% 
-  pivot_longer(cols = c(1:24),
-               names_to = "score",
-               values_to = "region",
-               names_sep)
-
-# The output is grouped by row, which makes modelling particularly easy
-# models <- mtcars %>%
-#   nest_by(cyl) %>%
-#   mutate(model = list(lm(mpg ~ wt, data = data)))
-reg_desc[[2]][[1]]
+  mutate(avg_scores = list(pmap(data, ~mean(.x, na.rm = TRUE)))) %>% 
+  select(-data)
+#extract list elements
+reg_avg <- data.frame(central = c(unlist(reg_desc$avg_scores[[3]])),
+                southeast = c(unlist(reg_desc$avg_scores[[1]])),
+                west = c(unlist(reg_desc$avg_scores[[2]])),
+                northeast = c(unlist(reg_desc$avg_scores[[4]]))) %>% 
+  #pretty labels for table
+  rownames_to_column(., "Average Score") %>% 
+  mutate(`Average Score` = str_replace_all(`Average Score`, "_", " "),
+         `Average Score` = str_replace_all(`Average Score`, "instruct", "instructional"),
+         `Average Score` = str_replace(`Average Score`, "hs", "high school and")) %>% 
+  mutate_at(vars(-c(1)), round, 2)
+#table
+regional_service_scores_table <- datatable(reg_avg)
+regional_service_scores_table
 ```
+
+Now we'll create a second table to understand average number of services based on locale type.  
+
+```{r locale services}
+#prep data and get mean scores for each locale
+locale_desc <- dat %>% 
+  select(region_type, ends_with(c("score"))) %>% 
+  group_by(region_type) %>% 
+  nest() %>% 
+  mutate(avg_scores = list(pmap(data, ~mean(.x, na.rm = TRUE)))) %>% 
+  select(-data)
+#extract list elements
+locale_avg <- data.frame(suburb = c(unlist(reg_desc$avg_scores[[1]])),
+                city = c(unlist(reg_desc$avg_scores[[2]])),
+                town = c(unlist(reg_desc$avg_scores[[3]])),
+                rural = c(unlist(reg_desc$avg_scores[[4]]))) %>% 
+  #pretty labels for table
+  rownames_to_column(., "Average Score") %>% 
+  mutate(`Average Score` = str_replace_all(`Average Score`, "_", " "),
+         `Average Score` = str_replace_all(`Average Score`, "instruct", "instructional"),
+         `Average Score` = str_replace(`Average Score`, "hs", "high school and")) %>% 
+  mutate_at(vars(-c(1)), round, 2)
+#table
+locale_service_scores_table <- datatable(locale_avg)
+locale_service_scores_table
+```
+
+Task 2: Mixed Approach - Mean Difference
+
+I'm interested in making a couple of visualizations (side-by-side bar charts most likely) that indicate the relationship between these average scores and the locale type, preferably within regions if I'm able to figure it out.    
+
+```{r locale within region mean difference}
+#mean diffs again, by double grouped nesting
+mean_diffs <- dat %>% 
+  select(region, region_type, ends_with(c("score"))) %>% 
+  group_by(region, region_type) %>% 
+  nest() %>% 
+  mutate(avg_scores = list(pmap(data, ~mean(.x, na.rm = TRUE)))) %>% 
+  select(-data)
+#first bar chart should just show averages of each score nested within
+#extract list elements
+nested_avg <- data.frame(southeast_city = c(unlist(mean_diffs$avg_scores[[4]])),
+                southeast_suburb = c(unlist(mean_diffs$avg_scores[[1]])),
+                southeast_town = c(unlist(mean_diffs$avg_scores[[16]])),
+                southeast_rural = c(unlist(mean_diffs$avg_scores[[13]])),
+                west_city = c(unlist(mean_diffs$avg_scores[[2]])),
+                west_suburb = c(unlist(mean_diffs$avg_scores[[14]])),
+                west_town = c(unlist(mean_diffs$avg_scores[[5]])),
+                west_rural = c(unlist(mean_diffs$avg_scores[[2]])),
+                central_city = c(unlist(mean_diffs$avg_scores[[7]])),
+                central_suburb = c(unlist(mean_diffs$avg_scores[[15]])),
+                central_town = c(unlist(mean_diffs$avg_scores[[3]])),
+                central_rural = c(unlist(mean_diffs$avg_scores[[10]])),
+                northeast_city = c(unlist(mean_diffs$avg_scores[[8]])),
+                northeast_suburb = c(unlist(mean_diffs$avg_scores[[11]])),
+                northeast_town = c(unlist(mean_diffs$avg_scores[[9]])),
+                northeast_rural = c(unlist(mean_diffs$avg_scores[[12]]))) %>% 
+  rownames_to_column(., "Average Score") %>% 
+  mutate(`Average Score` = str_replace_all(`Average Score`, "_", " "),
+         `Average Score` = str_replace_all(`Average Score`, "instruct", "instructional"),
+         `Average Score` = str_replace(`Average Score`, "hs", "high school and")) %>% 
+  pivot_longer(cols = !`Average Score`,
+               names_to = c("region", "locale_type"), 
+               names_sep = "_",
+               values_to = "score") %>% 
+  pivot_wider(names_from = "locale_type",
+              values_from = "score") %>% 
+  unite("Average Score by Region", c(region, `Average Score`), sep = " ")
+
+nested_region_locale_table <- nested_avg %>% 
+  mutate_at(vars(-c(1)), round, 2) %>% 
+  datatable()
+nested_region_locale_table
+
+#create loop for `nested_avg` object
+# for (i in length(mean_diffs$avg_scores)){
+#   
+#   nested_avg <- rep(NA, length(mean_diffs$avg_scores*6))
+#   
+#   for(j in 1:length(nested_avg))
+#   nested_avg[j] <- unlist(mean_diffs$avg_scores[i])
+# }}
+
+#create mean diffs across types
+#collapse town/rural and suburb/urban for simplicity
+nested_diffs <- nested_avg %>% 
+  mutate(rural = (town + rural) / 2,
+         urban = (suburb + city) / 2) %>% 
+  select(-c(city, suburb, town)) %>% 
+  #create percentage from max points for each score to make it meaningful
+    #then create mean difference
+#  instructional score max possible = 8   
+#  language support score max possible = 6    
+#  non instructional service score max possible = 4   
+#  high school and parent service score max possible = 4  
+#  bilingual content score max possible = 6   
+#  overall resource max possible = 22 
+  mutate(denom = c(rep(22, 4), rep(8, 4), rep(6, 4), rep(4, 4), rep(4, 4), rep(6, 4)),
+         rural_pct = rural / denom,
+         urban_pct = urban / denom,
+         difference = raw_diff(urban_pct, rural_pct))
+
+#prep data for plot
+mean_diff_plot <- nested_diffs %>% 
+  select(-denom) %>% 
+  mutate(region = c(rep(c("southeast", "west", "central", "northeast"), 6))) %>% 
+  rename(avg_score = `Average Score by Region`,
+         pct_urban = urban_pct,
+         pct_rural = rural_pct) %>% 
+  mutate(avg_score = str_remove_all(avg_score, c("southeast ", "west ", "central ", "northeast "))) %>% 
+  pivot_longer(cols = c(pct_rural, pct_urban),
+               names_to = "locale",
+               names_prefix = "pct_",
+               values_to = "percent")
+#labels for plot
+diff_labs <- data.frame(y = mean_diff_plot$percent,
+                        pct = c("", "7.83", "", "7.66", "", "11.53", "", "14.81", "", "7.46", "", "6.05", "", "14.05", "", "15.40", "", "6.41", "", "8.98", "", "7.90", "", "15.04", "", "5.67", "", "12.13", "", "2.69", "", "9.19", "", "12.88", "", "4.41", "", "20.78", "", "18.89", "", "8.52", "", "6.04", "", "14.17", "", "17.41"))
+#plot
+faceted_mean_diff <- ggplot(mean_diff_plot, aes(avg_score, percent, fill = locale)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_fill_manual(values = custom_cols) +
+    geom_text(aes(x = avg_score, y = percent + .025, label = diff_labs$pct)) +
+    labs(x = "",
+         y = "Score Percentages",
+         title = "Mean Difference in Locale Scores by Region") +
+    facet_wrap(vars(region)) +
+    theme_final()
+faceted_mean_diff
+```
+
+Pull out largest differences:
+
+```{r largest diffs}
+lrg_diff <- mean_diff_plot %>% 
+  select(-c(rural, urban)) %>% #these columns keep confusing me...
+  slice_max(difference, n = 10) %>% 
+  unite("avg_score", c(avg_score, region), sep = " - ")
+#almost all largest differences occur in the Northeast, that's interesting.
+#additionally, parent and HS student services are represented twice, in NE and also in central regions.
+#going to make a plot to indicate largest differences, with labels to mark these findings.
+lrg_diff_labs <- data.frame(y = c(lrg_diff$percent),
+                        labs = c("", lrg_diff$difference[1], "", lrg_diff$difference[3], "", lrg_diff$difference[5], "", lrg_diff$difference[7], "", lrg_diff$difference[9])) %>% 
+  mutate(add = rep(.015, 10),
+         y = y + add)
+
+lrg_diff_plot <- lrg_diff %>% 
+  ggplot(aes(avg_score, percent, fill = locale)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = custom_cols) +
+  labs(x = "",
+       y = "Score Percentages",
+       title = "The Majority of the Largest Differences Occurred in the Northeast",
+       subtitle = "additionally, high school and parent service scores appeared twice.") +
+  geom_text(aes(x = avg_score, y = lrg_diff_labs$y, label = lrg_diff_labs$labs),
+                color = "#c05750", size = 6) +
+  theme_final()
+lrg_diff_plot
+```
+
 
 Simple models  
 Predict instructional score and language support scores (centered to get an idea of average) using region in the country as a predictor grouped within region types.  
@@ -78,13 +237,97 @@ Predict instructional score and language support scores (centered to get an idea
 ```{r simple mods}
 reg_desc_mod <- dat %>% 
   map_at(c(5:22), numeric_dichot) %>% 
-  as.data.frame()
-  group_by(region_type) %>% 
+  as.data.frame() %>% 
+  group_by(region) %>%
   nest() %>% 
-  mutate(instruct_model = list(~ lm(instruct_score_c ~ region, data = reg_desc$data)),
-         language_support_model = list(~ lm(language_support_score_c ~ region, data = reg_desc$data)),
+  mutate(instruct_model = map(data, ~lm(instruct_score_c ~ region_type, data = .x)),
+         language_support_model = map(data, ~lm(language_support_score_c ~ region_type, data = .x)),
+         resource_model = map(data, ~lm(resource_score_c ~ region_type, data = .x)),
+         tidy_instruct = map(instruct_model, tidy),
+         tidy_support = map(language_support_model, tidy),
+         tidy_resource = map(resource_model, tidy),
          region_instruct_mean = map(data, ~mean(.x$instruct_score, na.rm = TRUE)),
-         region_lang_support_mean = map(data, ~mean(.x$language_support_score, na.rm = TRUE)))
+         region_lang_support_mean = map(data, ~mean(.x$language_support_score, na.rm = TRUE))) %>% 
+  ungroup()
+
+#some kind of plot
+resource_plot <- reg_desc_mod %>% 
+  select(data) %>% 
+  unnest(data) %>% 
+  ungroup() %>% 
+  select(region, ends_with(c("score_c"))) %>% 
+  group_by(region) %>% 
+  summarize_all(mean) %>% 
+  melt(id = "region")
+
+#labels to put in plot
+resource_labs <- data.frame(x = rep("central", 24),
+                            y = c(resource_plot$value),
+                            lab = c("Overall Resources", rep("", 3), "Instructional Supports", rep("", 3), "Language Supports", rep("", 3), "Non-instructional Supports", rep("", 3), "Services for Parents/High Schoolers", rep("", 3), "Bilingual Content", rep("", 3))) %>% 
+  mutate(add = c(rep(0, 4), 0.07, rep(0, 15), 0.12, rep(0, 3)),
+         y = y + add)
+
+
+ggplot(resource_plot, aes(region, value, color = variable, group = variable)) +
+  geom_line(size = 1) +
+  geom_text(aes(x = resource_labs$x, y = resource_labs$y, label = resource_labs$lab),
+            position = position_nudge(x = -.15, y = -.03)) +
+  scale_color_manual(values = custom_cols) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  theme_final() +
+  theme(legend.position = "none") +
+  labs(x = "",
+       y = "",
+       title = "Differences in (Centered)* Scores by Region",
+       caption = "*average indicated by dashed line")
+```
+
+Next to do is create tables from instruct/support/resource mods to show outcomes of modeling. Put asterisks for significant values.
+
+[Ran a simple regression model to see if instructional supports, language-specific supports, or overall resource supports differed as a function of region. Significant results marked by asterisk.]
+
+```{r model results}
+#save models
+#order = suburb, city, town, rural
+reg_col <- c("Southeast", rep("", 3), "West", rep("", 3), "Central", rep("", 3), "Northeast", rep("", 3))
+#create a for loop or something similar to build this argument for each group when you have more time
+instruct_mods <- reg_desc_mod %>% 
+  select(tidy_instruct) %>% 
+  unnest(tidy_instruct) %>% 
+  mutate(region = reg_col,
+         term = str_remove(term, "region_type"),
+         sig = ifelse(.05 > p.value & p.value > .01, paste0("*"), 
+                      ifelse(.01 > p.value & p.value > .001, paste0("**"), 
+                             ifelse(p.value < .001, paste0("***"), paste0("n.s."))))) %>% 
+  mutate_at(vars(-c(region, term, sig)), round, 4) %>% 
+  select(region, term, estimate, std.error, p.value, sig)
+
+support_mods <- reg_desc_mod %>% 
+  select(tidy_support) %>% 
+  unnest(tidy_support) %>% 
+  mutate(region = reg_col,
+         term = str_remove(term, "region_type"),
+         sig = ifelse(.05 > p.value & p.value > .01, paste0("*"), 
+                      ifelse(.01 > p.value & p.value > .001, paste0("**"), 
+                             ifelse(p.value < .001, paste0("***"), paste0("n.s."))))) %>% 
+  mutate_at(vars(-c(region, term, sig)), round, 4) %>%
+  select(region, term, estimate, std.error, p.value, sig)
+
+resource_mods <- reg_desc_mod %>% 
+  select(tidy_resource) %>% 
+  unnest(tidy_resource) %>% 
+  mutate(region = reg_col,
+         term = str_remove(term, "region_type"),
+         sig = ifelse(.05 > p.value & p.value > .01, paste0("*"), 
+                      ifelse(.01 > p.value & p.value > .001, paste0("**"), 
+                             ifelse(p.value < .001, paste0("***"), paste0("n.s."))))) %>% 
+  mutate_at(vars(-c(region, term, sig)), round, 4) %>%
+  select(region, term, estimate, std.error, p.value, sig)
+
+#tables
+instruct_mods_table <- datatable(instruct_mods)
+support_mods_table <- datatable(support_mods)
+resource_mods <- datatable(resource_mods)
 ```
 
 
@@ -104,8 +347,8 @@ region_mod <- dat %>%
   split(.$region_type) %>% 
   map(~lm(resource_score_c ~ receiving_content_primary, data = .)) %>% 
   map_dfc("coefficients") %>% 
-  cbind(term = c("intercept", "slope_most", "slope_none", "slope_some"), .) %>% 
-  ggplot(aes(resource_score_c, receiving_content_primary)) +
+  cbind(term = c("intercept", "slope_most", "slope_none", "slope_some"), .)
+  #ggplot(aes(resource_score_c, receiving_content_primary)) +
   
 # regression model 2
 # outcome = resource score (centered)
@@ -121,21 +364,6 @@ region_mod <- dat %>%
 #compare mods
 # anova(region_mod, region_mod2, test = "Chisq")
 
-#get intercept and slope for each
-ints_slopes <- nels_88 %>% 
-  split(.$schoolid) %>% # split df into list of dfs, one per school
-  map(~ lm(mathscore ~ timeonmath, data = .)) %>% # run OLS predicting score from time
-  map_dfc("coefficients") %>% # get coefficients for each in a df
-  cbind(term = c("intercept", "b_timeonmath"), .) %>% # identify the row with intercept and slope
-  gather(schoolid, estimate, -term) %>% # gather
-  spread(term, estimate)     # spread so we have a row per school, 
-                             # and a column for int and slope
 ```
 
-Log model
-
-```{r}
-log_model_1 <- glm(reported ~ 1 + offen_behav_c,
-                   data = log_df, family = "binomial")
-```
-
+Maybe create a log model to consider differences in odds?
