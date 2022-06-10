@@ -224,7 +224,7 @@ This comparison got me thinking about the tension between compliance and innovat
 
 Row 
 ----------------------------------------------------------------------
-### Region/Locale Visualizations
+
 
 ```{r mean diff viz, fig.dim = c(10, 10)}
 nested_diffs <- nested_avg %>% 
@@ -329,7 +329,7 @@ Comparing Scores {data-orientation=rows}
 
 Column
 -----------------------------------------------------------------------
-
+### Regional Scores Visualized
 #### How do scores compare across regions?
 
 The following visualization is another way to conceptualize how regional scores for subareas differed by using centered--rather than raw--scores.
@@ -342,8 +342,6 @@ Finally, I'll also point out that the northeast scored below the mean on all sco
 
 Row 
 ----------------------------------------------------------------------
-
-### Regional Scores Visualized
 
 ```{r avg scores viz 2, fig.dim = c(10, 10)}
 reg_desc_mod <- dat %>% 
