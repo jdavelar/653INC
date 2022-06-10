@@ -10,7 +10,6 @@ output:
 ---
 ```{r}
 library(flexdashboard)
-#library(shiny)
 library(DT)
 library(here)
 library(broom)
@@ -21,7 +20,6 @@ library(janitor)
 library(haven)
 library(rio)
 library(psych)
-#source(here("scripts", "analysis.Rmd"))
 source(here("scripts", "functions.R"))
 
 dat <- import(here("data", "clean_hsel_data.csv"))
