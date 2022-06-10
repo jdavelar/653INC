@@ -7,8 +7,6 @@ output:
     theme: readable
     social: menu
     source_code: https://github.com/jdavelar/653INC.git
-editor_options: 
-  chunk_output_type: console
 ---
 ```{r}
 library(flexdashboard)
