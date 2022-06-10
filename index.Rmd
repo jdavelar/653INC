@@ -203,11 +203,12 @@ nested_region_locale_table <- nested_avg %>%
 nested_region_locale_table
 ```
 
-Differences
+Differences {data-orientation=rows}
 =======================================================================
 
 Column
 -----------------------------------------------------------------------
+### Visualizations
 
 #### Visualizations by Region *and* Locale
 
